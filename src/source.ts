@@ -1,5 +1,5 @@
 export interface SourceCode {
-  path: string
+  path: string[]
   code: string
 }
 
@@ -10,7 +10,7 @@ export interface SourceRef {
 }
 
 export interface Environment {
-  sources(): SourceCode[]
+  sources(): Promise<SourceCode[]>
   diagnostics(): Diagnostic[]
   addDiagnostic(d: Diagnostic): void
 }
