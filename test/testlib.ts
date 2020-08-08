@@ -7,7 +7,6 @@ const cacheSources: {
 } = {}
 
 export function createEnvironment(ws: string) {
-  if (!ws) return null as unknown as Environment
   const diags: Diagnostic[] = []
   const r: Environment = {
     sources() {
@@ -46,8 +45,11 @@ export async function getSources(ws: string): Promise<SourceCode[]> {
 describe('testlib', () => {
   it('getSources', async () => {
     const sources = await getSources('ws1')
-    expect(sources.map((s) => s.path.join('/'))).to.deep.equal([
-      'app.yaml'
+    expect(sources.map((s) => s.path.join('/')).sort()).to.deep.equal([
+      'hi.pug',
+      'hi2.pug',
+      'hw.app',
+      'hw.pkg',
     ]);
   });
   it('createEnvironment', async () => {
