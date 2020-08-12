@@ -1,7 +1,8 @@
-application hw
+application samples.ws1.hw
 
-uses hw
+uses
+  hw = samples.ws1.hw
 
 routes
   '/': hi
-  '/${n:number}': hi(n)
+  '/${n:number}': hw.hi(n)

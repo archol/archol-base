@@ -1,0 +1,1 @@
+export type AstDef = 1 | 2
