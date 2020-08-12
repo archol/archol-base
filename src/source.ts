@@ -20,6 +20,11 @@ export interface SourceRef {
   }
 }
 
+export interface Token {
+  str: string,
+  loc: SourceRef
+}
+
 export interface Environment {
   languages: string[]
   sources(): Promise<SourceCode[]>

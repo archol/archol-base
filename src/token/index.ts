@@ -1,4 +1,4 @@
-import { SourceCode, Environment, SourceRef } from '../source'
+import { SourceCode, Environment, SourceRef, Token } from '../source'
 
 export interface Tokenizer {
   environment: Environment,
@@ -11,10 +11,10 @@ export interface Tokenizer {
   isEof(): boolean
   skipSpaces(includeLineBreaks: boolean): void
   skipLinefeed(): boolean
-  getIdent(): number
-  isIdented(parentIdent: number): boolean
   rowIsEmpty(): boolean
-  checkIdent(val: number): void
+  isIdented(start: TokenLoc): boolean
+  checkIdent(start: TokenLoc): void
+  runIdented<T>(fn: (start: TokenLoc) => T): T
   is(str: string): boolean
   skip(str: string): boolean
   check(str: string): void
@@ -23,7 +23,9 @@ export interface Tokenizer {
   readString(): TokenString
   nextWord(): Token
   readWhile(fn: (c: string, n: string) => boolean): Token
-  toString(): string
+  warn(msg: string, loc?: SourceRef): void
+  error(msg: string, loc?: SourceRef): void
+  fatal(msg: string, loc?: SourceRef): void
 }
 
 export interface TokenLoc {
@@ -32,11 +34,6 @@ export interface TokenLoc {
   col: number
   ident: number
   rowIsEmpty: boolean
-}
-
-export interface Token {
-  str: string,
-  loc: SourceRef
 }
 
 export interface TokenString extends Token {
@@ -100,8 +97,12 @@ export function createTokenizer(environment: Environment, src: SourceCode): Toke
           offset++
           col++
         }
-        else if (includeLineBreaks) self.skipLinefeed()
-        else break
+        else if (!includeLineBreaks) break
+        else if (!self.skipLinefeed()) break
+      }
+      if (rowIsEmpty) {
+        ident = col
+        rowIsEmpty = false
       }
     },
     skipLinefeed(): boolean {
@@ -109,21 +110,18 @@ export function createTokenizer(environment: Environment, src: SourceCode): Toke
       const n = src.code[offset + 1]
       if (c === '\n' && n === '\r') {
         rowIsEmpty = true
-        ident = 0
-        offset+=2
-        row+=2
+        offset += 2
+        row += 2
         col = 0
         return true
       } else if (c === '\r' && n === '\n') {
         rowIsEmpty = true
-        ident = 0
-        offset+=2
-        row+=2
+        offset += 2
+        row += 2
         col = 0
         return true
       } else if (c === '\r' || c === '\n') {
         rowIsEmpty = true
-        ident = 0
         row++
         col = 0
         offset++
@@ -132,20 +130,27 @@ export function createTokenizer(environment: Environment, src: SourceCode): Toke
       }
       return false
     },
-    getIdent() {
-      return ident
-    },
-    isIdented(parentIdent) {
-      return (offset < src.code.length) && (parentIdent < ident)
-    },
     rowIsEmpty() {
       return rowIsEmpty
     },
-    checkIdent(val: number) {
-      if (val !== ident) environment.fatal(
-        'Ident atual=' + ident + ' esperadado=' + val,
+    isIdented(start) {
+      return (offset < src.code.length) && (
+        (start.row === row) ||
+        (start.row > row && start.ident < ident)
+      )
+    },
+    checkIdent(start: TokenLoc): void {
+      if (!self.isIdented(start)) environment.fatal(
+        'Ident atual=' + ident + ' esperadado>' + start.ident,
         self.loc()
       )
+    },
+    runIdented<T>(fn: (start: TokenLoc) => T): T {
+      if (rowIsEmpty) self.fatal('uma linha em branco era esperada aqui')
+      const start = {
+        offset, row, col, ident, rowIsEmpty
+      }
+      return fn(start)
     },
     is(str: string) {
       const l = str.length
@@ -153,6 +158,7 @@ export function createTokenizer(environment: Environment, src: SourceCode): Toke
       return r
     },
     skip(str: string) {
+      if (/\s/.test(str)) self.fatal('tokenizer.skip não pode ter espaço')
       const l = str.length
       const r = src.code.substr(offset, l) === str
       if (r) {
@@ -189,21 +195,18 @@ export function createTokenizer(environment: Environment, src: SourceCode): Toke
         const n = src.code[offset + 1]
         if (c === '\n' && n === '\r') {
           rowIsEmpty = true
-          ident = 0
           offset++
           row++
           col = 0
           ret.push('\n')
         } else if (c === '\r' && n === '\n') {
           rowIsEmpty = true
-          ident = 0
           offset++
           row++
           col = 0
           ret.push('\n')
         } else if (c === '\r' || c === '\n') {
           rowIsEmpty = true
-          ident = 0
           offset++
           row++
           col = 0
@@ -220,6 +223,10 @@ export function createTokenizer(environment: Environment, src: SourceCode): Toke
         loc: self.loc(start)
       }
       return r
+      ixf (rowIsEmpty) {
+        ident = col
+        rowIsEmpty = false
+      }
     },
     readWhile(fn: (c: string, n: string) => boolean): Token {
       const start = self.locStart()
@@ -233,6 +240,10 @@ export function createTokenizer(environment: Environment, src: SourceCode): Toke
         loc: self.loc(start)
       }
       return r
+      ixf (rowIsEmpty) {
+        ident = col
+        rowIsEmpty = false
+      }
     },
     nextWord() {
       const start = self.locStart()
@@ -240,10 +251,20 @@ export function createTokenizer(environment: Environment, src: SourceCode): Toke
       const w = self.readWhile((c, n) => !(c === ' ' || c === '\n' || c === '\r' || c === '\n' || n === undefined))
       self.locSet(start)
       return w
+      ixf (rowIsEmpty) {
+        ident = col
+        rowIsEmpty = false
+      }
     },
-    toString(): string {
-      return self.nextWord().str
-    }
+    warn(msg, loc) {
+      environment.warn(msg, loc || self.loc())
+    },
+    error(msg, loc) {
+      environment.error(msg, loc || self.loc())
+    },
+    fatal(msg, loc) {
+      environment.fatal(msg, loc || self.loc())
+    },
   }
   return self
 }

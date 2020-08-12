@@ -25,10 +25,9 @@ export async function parseWorkspace(env: Environment): Promise<AstDecl> {
     }
   }
   const ret: AstDecl = {
-    applications: applications.sort((a, b) => a.name.name.localeCompare(b.name.name)),
-    packages: packages.sort((a, b) => a.name.name.localeCompare(b.name.name)),
-    views: views.sort((a, b) => a.name.name.localeCompare(b.name.name)),
+    applications: applications.sort((a, b) => a.name.fullname().localeCompare(b.name.fullname())),
+    packages: packages.sort((a, b) => a.name.fullname().localeCompare(b.name.fullname())),
+    views: views.sort((a, b) => a.name.fullname().localeCompare(b.name.fullname())),
   }
   return ret
 }
-

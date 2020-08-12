@@ -1,20 +1,32 @@
 import { Identifier, DeclNode, Icon, NodeKind, LiteralProp, LiteralObject, LiteralString } from '../decl';
 import { Tokenizer, TokenLoc } from '../../token';
-import { SourceRef } from '../../source';
+import { SourceRef, Token } from '../../source';
 
 export function parseIdentifier(t: Tokenizer, requiredMsg?: string): Identifier {
+  const start = t.locStart()
   t.skipSpaces(false)
-  const p = t.readWhile((c) =>
-    (c >= 'a' && c <= 'z') ||
-    (c >= 'A' && c <= 'Z') ||
-    (c >= '0' && c <= '9') ||
-    (c === '_')
-  )
-  if (requiredMsg && p.loc.length < 1) t.environment.fatal(requiredMsg, p.loc)
+  const names: Token[] = []
+  do {
+    const p = pstr()
+    names.push(p)
+    if (requiredMsg && p.loc.length < 1) t.environment.fatal(requiredMsg, p.loc)
+    t.skipSpaces(true)
+  } while (t.isIdented(start) && t.skip('.'))
   return {
     kind: 'Identifier',
-    name: p.str,
-    loc: p.loc
+    names,
+    loc: t.loc(start),
+    fullname() {
+      return names.map((n) => n.str).join('.')
+    }
+  }
+  function pstr() {
+    return t.readWhile((c) =>
+      (c >= 'a' && c <= 'z') ||
+      (c >= 'A' && c <= 'Z') ||
+      (c >= '0' && c <= '9') ||
+      (c === '_')
+    )
   }
 }
 
@@ -27,25 +39,25 @@ export function parseIcon(t: Tokenizer): Icon {
   }
 }
 
-// export function parsePackageUses(t: Tokenizer) {
-//   const initialIdent = t.getIdent()
-//   const p = parseProperties(
-//     t,
-//     {
-//       '*'() {
-//         const pkg = t.readString()
-//         return pkg
-//       },
-//     },
-//     [''],
-//     ''
-//   )
-//   const ret: PackageUses = {
-// kind: ,
+export function parsePackageUses(t: Tokenizer) {
+try{  
+  const p = parseProperties(
+    t,
+    {
+      '*'() {
+        const pkg = t.readString()
+        return pkg
+      },
+    },
+    [''],
+    ''
+  )
+  const ret: PackageUses = {
+kind: ,
 
-//   }
-//   return 
-// }
+  }
+  return 
+}
 
 // function parseI18N(t: Tokenizer, requiredMsg?: string): I18N {
 //   const initialIdent=t.getIdent()
@@ -94,7 +106,12 @@ export function parseProperties<
   const propsArr: Array<LiteralProp<PROPTYPE>> = []
   const obj: LiteralObject<PROPTYPE, KIND> = {
     GetAsAny() {
-      return propsArr
+      const ret: any = {}
+      for (const i of propsArr) {
+        const v: any = i.val
+        ret[i.name.val] = v.GetAsAny ? v.GetAsAny() : v
+      }
+      return
     },
     kind,
     loc: null as any as SourceRef,
@@ -112,19 +129,20 @@ export function parseProperties<
   }
   t.skipSpaces(false)
   const wild = parseProps['*']
-  while (t.isIdented(start.ident)) {
+  while (t.isIdented(start)) {
     if (stopWords.some((w) => t.skip(w))) break
     const propNameToken = t.readWhile((c) => {
       if (c === ':' || c === '=') return false
       if (c === '\r' || c === '\n') t.environment.fatal('nome de propriedade deve ser seguido de : ou =', t.loc())
       return true
     })
+    t.skipSpaces(false)
+    if (!(t.skip('=') || t.skip(':'))) t.environment.fatal('Esperado = ou : após nome da propriedade', t.loc())
     const propName: keyof PROPS = propNameToken.str
     const parsePropValue = parseProps[propName] || wild
     t.skipSpaces(false)
-    if (!(t.skip('=') || t.skip(':'))) t.environment.fatal('Esperado = ou : após nome da propriedade', t.loc())
-    t.skipSpaces(false)
-    const value = parsePropValue(t.skipLinefeed())
+    const multline = t.skipLinefeed()
+    const value = parsePropValue(multline)
     if (value) {
       const propNameIdentifier: LiteralString = {
         kind: "LiteralString",

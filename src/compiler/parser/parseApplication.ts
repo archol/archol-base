@@ -16,9 +16,9 @@ export function parseApp(t: Tokenizer, apps: Application[]): boolean {
       icon() {
         return parseIcon(t)
       },
-      // uses() {
-      //   return parsePackageUses(t)
-      // },
+      uses(multline) {        
+        return t.runIdented(parsePackageUses(t))
+      },
       // packages: {
       //   [uri in PackageURI]: Package
       // },

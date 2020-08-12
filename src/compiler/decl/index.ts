@@ -1,4 +1,4 @@
-import { SourceRef } from '../../source'
+import { SourceRef, Token } from '../../source'
 
 export interface AstDecl {
   applications: Application[]
@@ -25,7 +25,8 @@ export interface DeclNode<KIND extends NodeKind> {
 }
 
 export interface Identifier extends DeclNode<'Identifier'> {
-  name: string
+  fullname(): string
+  names: Token[]
 }
 
 export interface Literal<KIND extends NodeKind> extends DeclNode<KIND> {
