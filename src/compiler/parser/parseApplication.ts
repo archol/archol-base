@@ -1,6 +1,6 @@
 import { Tokenizer } from '../../token'
 import { Application } from '../decl'
-import { parseIdentifier, parseIcon, parseProperties } from './libParser'
+import { parseIdentifier, parseIcon, parseProperties, parsePackageUses } from './libParser'
 
 export function parseApp(t: Tokenizer, apps: Application[]): boolean {
   const start = t.locStart()
@@ -16,8 +16,9 @@ export function parseApp(t: Tokenizer, apps: Application[]): boolean {
       icon() {
         return parseIcon(t)
       },
-      uses(multline) {        
-        return t.runIdented(parsePackageUses(t))
+      uses(multline) {
+        if (!multline) t.fatal('PackageUses precisa ser multi-linha')
+        return t.runIdented(() => parsePackageUses(t))
       },
       // packages: {
       //   [uri in PackageURI]: Package

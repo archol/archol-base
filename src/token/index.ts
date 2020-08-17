@@ -93,12 +93,13 @@ export function createTokenizer(environment: Environment, src: SourceCode): Toke
     skipSpaces(includeLineBreaks: boolean) {
       while (offset < src.code.length) {
         const c = src.code[offset]
-        if (c === ' ' || c === '\t') {
+        if (c === ' ') {
           offset++
           col++
-        }
-        else if (!includeLineBreaks) break
-        else if (!self.skipLinefeed()) break
+        } else if (!includeLineBreaks) break
+        else if (!self.skipLinefeed())
+          if (c === '\t') self.fatal('caracter TAB não suportado')
+          else break
       }
       if (rowIsEmpty) {
         ident = col
@@ -108,27 +109,7 @@ export function createTokenizer(environment: Environment, src: SourceCode): Toke
     skipLinefeed(): boolean {
       const c = src.code[offset]
       const n = src.code[offset + 1]
-      if (c === '\n' && n === '\r') {
-        rowIsEmpty = true
-        offset += 2
-        row += 2
-        col = 0
-        return true
-      } else if (c === '\r' && n === '\n') {
-        rowIsEmpty = true
-        offset += 2
-        row += 2
-        col = 0
-        return true
-      } else if (c === '\r' || c === '\n') {
-        rowIsEmpty = true
-        row++
-        col = 0
-        offset++
-        col++
-        return true
-      }
-      return false
+      return lf(c, n)
     },
     rowIsEmpty() {
       return rowIsEmpty
@@ -146,7 +127,7 @@ export function createTokenizer(environment: Environment, src: SourceCode): Toke
       )
     },
     runIdented<T>(fn: (start: TokenLoc) => T): T {
-      if (rowIsEmpty) self.fatal('uma linha em branco era esperada aqui')
+      if (!rowIsEmpty) self.fatal('uma linha em branco era esperada aqui')
       const start = {
         offset, row, col, ident, rowIsEmpty
       }
@@ -189,32 +170,43 @@ export function createTokenizer(environment: Environment, src: SourceCode): Toke
       const start = self.locStart()
       const quote = src.code[offset++]
       const ret: string[] = []
-      while (offset < src.code.length) {
-        const c = src.code[offset]
-        if (c === quote) break
-        const n = src.code[offset + 1]
-        if (c === '\n' && n === '\r') {
-          rowIsEmpty = true
+      self.runIdented(() => {
+        while (offset < src.code.length) {
+          const c = src.code[offset]
+          if (c === quote) break
+          const n = src.code[offset + 1]
+          if (lf(c, n))
+            if (lf(c, n))
+              lf(c, n)
+          if (c === '\n' && n === '\r') {
+            rowIsEmpty = true
+            offset++
+            row++
+            col = 0
+            ret.push('\n')
+          } else if (c === '\r' && n === '\n') {
+            rowIsEmpty = true
+            offset++
+            row++
+            col = 0
+            ret.push('\n')
+          } else if (c === '\r' || c === '\n') {
+            rowIsEmpty = true
+            offset++
+            row++
+            col = 0
+            ret.push('\n')
+          } else {
+            if (rowIsEmpty) {
+              ident = col
+              rowIsEmpty = false
+            }
+            ret.push(c)
+          }
           offset++
-          row++
-          col = 0
-          ret.push('\n')
-        } else if (c === '\r' && n === '\n') {
-          rowIsEmpty = true
-          offset++
-          row++
-          col = 0
-          ret.push('\n')
-        } else if (c === '\r' || c === '\n') {
-          rowIsEmpty = true
-          offset++
-          row++
-          col = 0
-          ret.push('\n')
-        } else ret.push(c)
-        offset++
-        col++
-      }
+          col++
+        }
+      })
       offset++
       col++
       const r: TokenString = {
@@ -223,27 +215,22 @@ export function createTokenizer(environment: Environment, src: SourceCode): Toke
         loc: self.loc(start)
       }
       return r
-      ixf (rowIsEmpty) {
-        ident = col
-        rowIsEmpty = false
-      }
     },
     readWhile(fn: (c: string, n: string) => boolean): Token {
       const start = self.locStart()
       while (offset < src.code.length) {
-        if (!fn(src.code[offset], src.code[offset + 1])) break
-        offset++
-        col++
+        const c = src.code[offset]
+        const n = src.code[offset + 1]
+        if (!lf(c, n)) if (fn(c, n)) {
+          offset++
+          col++
+        }
       }
       const r: Token = {
         str: src.code.substr(start.offset, offset - start.offset),
         loc: self.loc(start)
       }
       return r
-      ixf (rowIsEmpty) {
-        ident = col
-        rowIsEmpty = false
-      }
     },
     nextWord() {
       const start = self.locStart()
@@ -251,10 +238,6 @@ export function createTokenizer(environment: Environment, src: SourceCode): Toke
       const w = self.readWhile((c, n) => !(c === ' ' || c === '\n' || c === '\r' || c === '\n' || n === undefined))
       self.locSet(start)
       return w
-      ixf (rowIsEmpty) {
-        ident = col
-        rowIsEmpty = false
-      }
     },
     warn(msg, loc) {
       environment.warn(msg, loc || self.loc())
@@ -267,4 +250,33 @@ export function createTokenizer(environment: Environment, src: SourceCode): Toke
     },
   }
   return self
+  function lf(c: string, n: string): boolean {
+    if (c === '\n' && n === '\r') {
+      rowIsEmpty = true
+      offset += 2
+      row += 2
+      col = 0
+      return true
+    } else if (c === '\r' && n === '\n') {
+      rowIsEmpty = true
+      offset += 2
+      row += 2
+      col = 0
+      return true
+    } else if (c === '\r' || c === '\n') {
+      rowIsEmpty = true
+      row++
+      col = 0
+      offset++
+      col++
+      return true
+    } else if (c === '\t') self.fatal('caracter TAB não suportado')
+    else if (rowIsEmpty && c !== ' ') {
+      if (rowIsEmpty) {
+        ident = col
+        rowIsEmpty = false
+      }
+    }
+    return false
+  }
 }

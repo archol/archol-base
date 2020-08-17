@@ -3,7 +3,7 @@ import { compile } from '../src';
 import { createEnvironment } from './testlib';
 
 describe('compiler', () => {
-  it('hw', async () => {
+  it.skip('hw', async () => {
     const env = createEnvironment('ws1')
 
     const ast = await compile(env);

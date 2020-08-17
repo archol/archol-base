@@ -12,9 +12,10 @@ export async function parseWorkspace(env: Environment): Promise<AstDecl> {
   const sources = await env.sources()
   for (const src of sources) {
     const t = createTokenizer(env, src)
+    const start = t.locStart()
     while (!t.isEof()) {
       t.skipSpaces(true)
-      t.checkIdent(0)
+      t.checkIdent(start)
       if (!parseApp(t, applications))
         if (!parsePackage(t, packages))
           if (!parseView(t, views)) {

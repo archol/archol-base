@@ -5,7 +5,7 @@ import { createEnvironment } from './testlib';
 describe('tokenizer', () => {
   it('skipSpaces / is / check / isEof', () => {
     const src: SourceCode = {
-      code: ' \n\t\rok\n \t\r',
+      code: ' \n\r ok\n \r ',
       path: [''],
       createRef: null as any
     }
@@ -65,7 +65,6 @@ describe('tokenizer', () => {
     expect(sources).not.to.be.undefined
     const t = createTokenizer(env, hwapp)
 
-    t.checkIdent(0);
     t.check('application')
     t.skipSpaces(true)
     expect(t.row).to.eq(1)

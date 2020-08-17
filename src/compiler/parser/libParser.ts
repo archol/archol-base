@@ -40,23 +40,18 @@ export function parseIcon(t: Tokenizer): Icon {
 }
 
 export function parsePackageUses(t: Tokenizer) {
-try{  
-  const p = parseProperties(
-    t,
-    {
-      '*'() {
-        const pkg = t.readString()
-        return pkg
+    const p = parseProperties(
+      t,
+      {
+        '*'() {
+          const pkg = t.readString()
+          return pkg
+        },
       },
-    },
-    [''],
-    ''
-  )
-  const ret: PackageUses = {
-kind: ,
-
-  }
-  return 
+      [''],
+      'PackageUses'
+    )
+    return p.obj
 }
 
 // function parseI18N(t: Tokenizer, requiredMsg?: string): I18N {
